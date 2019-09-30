@@ -80,20 +80,61 @@ class ArticleDeleteView(View):
         return redirect('index')
 
 
+class CommentView(TemplateView):
+    template_name = 'comment_view.html'
+
+    def get_context_data(self, **kwargs):
+        article = super().get_context_data(**kwargs)
+        article['comments'] = Comment.objects.all().order_by('-created_at') #сортировка надеюсь что правельная
+        return article
+
+
 class CommentCreateView(View):
     def get(self, request, *args, **kwargs):
         form = CommentForm()
-        return render(request, 'comment/create.html', context={'form': form})
+        return render(request, 'comment_create_view.html', context={'form': form})
 
     def post(self, request, *args, **kwargs):
         form = CommentForm(data=request.POST)
         if form.is_valid():
-            comment = Comment.objects.create(
-                author=form.cleaned_data['author'],
-                text=form.cleaned_data['text'],
-                article=form.cleaned_data['article']
+            Comment.objects.create(
+                article=form.cleaned_data['article'], author=form.cleaned_data['author'], text=form.cleaned_data['text']
             )
-            # это нужно исправить на ваш url.
-            return redirect('article_view', pk=comment.article.pk)
+            return redirect('comment_view')
+
         else:
-            return render(request, 'comment/create.html', context={'form': form})
+            return render(request, 'comment_create_view.html', context={'form': form})
+
+
+class CommentUpdateView(View):
+    def get(self, request, *args, **kwargs):
+        article = get_object_or_404(Comment, pk=kwargs['pk'])
+        form = CommentForm(data={
+            'article': article.article,
+            'author': article.author,
+            'text': article.text
+        })
+        return render(request, 'comment_update_view.html', context={'form': form, 'comment': article})
+
+    def post(self, request, *args, **kwargs):
+        article = get_object_or_404(Comment, pk=kwargs['pk'])
+        form = CommentForm(data=request.POST)
+        if form.is_valid():
+            article.article = form.cleaned_data['article']
+            article.author = form.cleaned_data['author']
+            article.text = form.cleaned_data['text']
+            article.save()
+            return redirect('comment_view')
+        else:
+            return render(request, 'comment_update_view.html', context={'form': form, 'comment': article})
+
+
+class CommentDeleteView(View):
+    def get(self, request, *args, **kwargs):
+        article = get_object_or_404(Comment, pk=kwargs['pk'])
+        return render(request, 'comment_delete_view.html', context={'comment': article})
+
+    def post(self, request, *args, **kwargs):
+        article = get_object_or_404(Comment, pk=kwargs['pk'])
+        article.delete()
+        return redirect('comment_view')
